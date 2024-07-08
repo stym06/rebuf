@@ -8,7 +8,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/stym06/rebuf/utils"
 )
@@ -17,7 +16,6 @@ type RebufOptions struct {
 	LogDir      string
 	MaxLogSize  int64
 	MaxSegments int
-	SyncMaxWait time.Duration
 }
 
 type Rebuf struct {
@@ -26,7 +24,6 @@ type Rebuf struct {
 	maxLogSize       int64
 	maxSegments      int
 	segmentCount     int
-	syncMaxWait      time.Duration
 	bufWriter        *bufio.Writer
 	logSize          int64
 	file             *os.File
@@ -57,7 +54,6 @@ func Init(options *RebufOptions) (*Rebuf, error) {
 		logDir:      options.LogDir,
 		maxLogSize:  options.MaxLogSize,
 		maxSegments: options.MaxSegments,
-		syncMaxWait: options.SyncMaxWait,
 		tmpLogFile:  tmpLogFile,
 	}
 

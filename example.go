@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/stym06/rebuf/rebuf"
 )
@@ -19,7 +18,6 @@ func main() {
 		LogDir:      "/Users/satyamraj/personal/rebuf/data",
 		MaxLogSize:  50,
 		MaxSegments: 2,
-		SyncMaxWait: 5 * time.Second,
 	}
 
 	//Init Rebuf
