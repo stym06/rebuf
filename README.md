@@ -32,6 +32,9 @@ if err != nil {
     fmt.Println("Error during Rebuf creation: " + err.Error())
 }
 
+//Write Bytes
+err = rebuf.Write([]byte("Hello world"))
+
 //Replay
 rebuf.Replay(writeToStdout)
 
