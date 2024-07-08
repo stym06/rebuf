@@ -164,7 +164,21 @@ func (rebuf *Rebuf) openExistingOrCreateNew(logDir string) error {
 	return nil
 }
 
-func (rebuf *Rebuf) Replay() {
+func (rebuf *Rebuf) Replay() error {
+	files, err := utils.GetAllSegmentsList(rebuf.logDir)
+	if err != nil {
+		return err
+	}
+	for _, fileInfo := range files {
+		file, err := os.Open(rebuf.logDir + "/" + fileInfo.Name())
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		// TODO
+
+	}
 
 }
 

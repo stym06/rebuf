@@ -1,6 +1,6 @@
 # rebuf
 
-`rebuf` is a Golang implementation of WAL (Write Ahead Logging) which can also be used to log data bytes during a downstream service issue which can later be replayed on-demand
+`rebuf` is a Golang implementation of WAL (Write Ahead||After Logging) which can also be used to log data bytes during a downstream service issue which can later be replayed on-demand
 
 ## Features
 
@@ -15,6 +15,24 @@
 3. Install the necessary dependencies by running: `go mod download`
 
 ## Usage
+
+```
+example.go
+
+rebufOptions := &rebuf.RebufOptions{
+    LogDir:      "/Users/data",
+    MaxLogSize:  50,
+    MaxSegments: 2,
+    SyncMaxWait: 5 * time.Second,
+}
+
+//Init Rebuf
+rebuf, err := rebuf.Init(rebufOptions)
+if err != nil {
+    fmt.Println("Error during Rebuf creation: " + err.Error())
+}
+
+```
 
 ## License
 

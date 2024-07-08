@@ -2,6 +2,7 @@ package utils
 
 import (
 	"io"
+	"io/fs"
 	"os"
 	"sort"
 	"strconv"
@@ -86,4 +87,22 @@ func GetOldestSegmentFile(logDir string) (string, error) {
 		return filteredFiles[i].Name() < filteredFiles[j].Name()
 	})
 	return filteredFiles[0].Name(), nil
+}
+
+func GetAllSegmentsList(logDir string) ([]fs.DirEntry, error) {
+	files, err := os.ReadDir(logDir)
+	if err != nil {
+		return nil, err
+	}
+	// Filter out .tmp files
+	var filteredFiles []os.DirEntry
+	for _, file := range files {
+		if !strings.HasSuffix(file.Name(), ".tmp") {
+			filteredFiles = append(filteredFiles, file)
+		}
+	}
+	sort.Slice(filteredFiles, func(i, j int) bool {
+		return filteredFiles[i].Name() < filteredFiles[j].Name()
+	})
+	return filteredFiles, nil
 }
