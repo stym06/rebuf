@@ -24,7 +24,6 @@ rebufOptions := &rebuf.RebufOptions{
     LogDir:      "/Users/data",
     MaxLogSize:  50,
     MaxSegments: 2,
-    SyncMaxWait: 5 * time.Second,
 }
 
 //Init Rebuf
@@ -33,7 +32,16 @@ if err != nil {
     fmt.Println("Error during Rebuf creation: " + err.Error())
 }
 
+//Replay
+rebuf.Replay(writeToStdout)
+
+
+func writeToStdout(data []byte) error {
+	fmt.Println(string(data))
+	return nil
+}
 ```
+
 
 ## License
 
