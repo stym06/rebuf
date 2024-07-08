@@ -164,7 +164,7 @@ func (rebuf *Rebuf) openExistingOrCreateNew(logDir string) error {
 	return nil
 }
 
-func (rebuf *Rebuf) Replay() error {
+func (rebuf *Rebuf) Replay(callbackFn func([]byte) error) error {
 	files, err := utils.GetAllSegmentsList(rebuf.logDir)
 	if err != nil {
 		return err
@@ -176,7 +176,29 @@ func (rebuf *Rebuf) Replay() error {
 		}
 		defer file.Close()
 
-		// TODO
+		var readBytes []byte
+		for err == nil {
+			bufReader := bufio.NewReader(file)
+			readBytes, err = bufReader.Peek(8)
+			if err != nil {
+				break
+			}
+			size := int(binary.BigEndian.Uint64(readBytes))
+			_, err := bufReader.Discard(8)
+			if err != nil {
+				break
+			}
+
+			data, err := bufReader.Peek(size)
+			if err != nil {
+				break
+			}
+			err = callbackFn(data)
+			if err != nil {
+				break
+			}
+			_, _ = bufReader.Discard(size)
+		}
 
 	}
 	return nil
