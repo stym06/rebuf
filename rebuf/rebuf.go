@@ -2,9 +2,10 @@ package rebuf
 
 import (
 	"bufio"
+	"encoding/binary"
 	"fmt"
+	"io"
 	"os"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -21,14 +22,15 @@ type RebufOptions struct {
 
 type Rebuf struct {
 	logDir           string
-	logFileName      string
 	currentSegmentId int
 	maxLogSize       int64
 	maxSegments      int
 	segmentCount     int
 	syncMaxWait      time.Duration
 	bufWriter        *bufio.Writer
-	bufSize          int64
+	logSize          int64
+	file             *os.File
+	tmpLogFile       *os.File
 }
 
 func Init(options *RebufOptions) (*Rebuf, error) {
@@ -37,82 +39,128 @@ func Init(options *RebufOptions) (*Rebuf, error) {
 		panic("Log Directory should not have trailing slash")
 	}
 
+	//ensure dir is created
+	if _, err := os.Stat(options.LogDir); err != nil {
+		if os.IsNotExist(err) {
+			os.Mkdir(options.LogDir, 0700)
+		}
+	}
+
+	//open temp file
+	tmpLogFileName := options.LogDir + "/" + "rebuf.tmp"
+	tmpLogFile, err := os.OpenFile(tmpLogFileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		return nil, err
+	}
+
 	rebuf := &Rebuf{
 		logDir:      options.LogDir,
 		maxLogSize:  options.MaxLogSize,
 		maxSegments: options.MaxSegments,
 		syncMaxWait: options.SyncMaxWait,
+		tmpLogFile:  tmpLogFile,
 	}
 
-	err := rebuf.openExistingOrCreateNew(options.LogDir)
+	err = rebuf.openExistingOrCreateNew(options.LogDir)
+
+	if err != nil {
+		return nil, err
+	}
 
 	return rebuf, err
 }
 
 func (rebuf *Rebuf) Write(data []byte) error {
-	if rebuf.bufSize+int64(len(data)) > rebuf.maxLogSize {
-		fmt.Println("Log size will be greater than " + string(rebuf.bufSize))
-		logFileName := rebuf.logDir + "/" + "rebuf-" + strconv.Itoa(rebuf.segmentCount+1)
-		file, err := os.OpenFile(logFileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-		if err != nil {
-			return err
-		}
+	if rebuf.logSize+int64(len(data))+8 > rebuf.maxLogSize {
+
+		fmt.Println("Log size will be greater than " + string(rebuf.logSize))
 		rebuf.bufWriter.Flush()
-		rebuf.bufWriter = bufio.NewWriter(file)
-		_, err = rebuf.bufWriter.Write(data)
+
+		//rename this file to current segment count
+		os.Rename(rebuf.logDir+"/rebuf.tmp", rebuf.logDir+"/rebuf-"+strconv.Itoa(rebuf.currentSegmentId+1))
+
+		//increase segment count by 1
+		rebuf.currentSegmentId += 1
+		rebuf.segmentCount += 1
+
+		//change writer to this temp file
+		rebuf.bufWriter = bufio.NewWriter(rebuf.tmpLogFile)
+		rebuf.logSize = 0
+
+		if rebuf.segmentCount > rebuf.maxSegments {
+			//delete the oldest log file
+			oldestLogFileName, err := utils.GetOldestSegmentFile(rebuf.logDir)
+			if err != nil {
+				return err
+			}
+			os.Remove(rebuf.logDir + "/" + oldestLogFileName)
+			return nil
+		}
+
+		return nil
+	}
+
+	//seek to the end of the file
+	_, err := rebuf.tmpLogFile.Seek(0, io.SeekEnd)
+	if err != nil {
 		return err
 	}
-	_, err := rebuf.bufWriter.Write(data)
-	return err
+
+	//write the size of the byte array and then the byte array itself
+	size := uint64(len(data))
+	//creating a byte array of size 8 and putting the length of `data` into the array
+	sizeBuf := make([]byte, 8)
+	binary.BigEndian.PutUint64(sizeBuf, size)
+
+	_, err = rebuf.bufWriter.Write(sizeBuf)
+	if err != nil {
+		return err
+	}
+	_, err = rebuf.bufWriter.Write(data)
+	if err != nil {
+		return err
+	}
+	rebuf.logSize = rebuf.logSize + int64(len(data)) + 8
+	rebuf.tmpLogFile.Close()
+
+	return nil
 }
 
 func (rebuf *Rebuf) openExistingOrCreateNew(logDir string) error {
-
-	//ensure dir is created
-	if _, err := os.Stat(logDir); err != nil {
-		if os.IsNotExist(err) {
-			os.Mkdir(logDir, 0700)
-		}
-	}
-	//check if directory is empty
+	//check if directory is empty (only containing .tmp file)
 	empty, err := utils.IsDirectoryEmpty(logDir)
 	if err != nil {
 		return err
 	}
+
+	logFileName := logDir + "/" + "rebuf.tmp"
+	file, err := os.OpenFile(logFileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		return err
+	}
+	rebuf.file = file
+	rebuf.bufWriter = bufio.NewWriter(file)
+
 	if empty {
 		rebuf.currentSegmentId = 0
-		firstLogFileName := logDir + "/" + "rebuf-0"
-		file, err := os.OpenFile(firstLogFileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-		if err != nil {
-			return err
-		}
-		rebuf.bufWriter = bufio.NewWriter(file)
-		rebuf.bufSize = 0
 		rebuf.segmentCount = 0
+		rebuf.logSize, err = utils.FileSize(file)
+		if err != nil {
+			return err
+		}
 	} else {
-		files, err := os.ReadDir(logDir)
+		rebuf.currentSegmentId, err = utils.GetLatestSegmentId(logDir)
 		if err != nil {
 			return err
 		}
-		sort.Slice(files, func(i, j int) bool {
-			return files[i].Name() > files[j].Name()
-		})
-		firstLogFileName := logDir + "/" + files[0].Name()
-		file, err := os.OpenFile(firstLogFileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+
+		rebuf.segmentCount, err = utils.GetNumSegments(logDir)
 		if err != nil {
 			return err
 		}
-		rebuf.bufWriter = bufio.NewWriter(file)
-		rebuf.bufSize, err = utils.FileSize(file)
-		if err != nil {
-			return err
-		}
-		rebuf.segmentCount, err = strconv.Atoi(strings.Split(files[0].Name(), "-")[1])
-		rebuf.logFileName = files[0].Name()
-		if err != nil {
-			return err
-		}
+		rebuf.logSize, _ = utils.FileSize(rebuf.tmpLogFile)
 	}
+
 	return nil
 }
 
@@ -121,9 +169,9 @@ func (rebuf *Rebuf) Replay() {
 }
 
 func (rebuf *Rebuf) Close() error {
-	err := rebuf.bufWriter.Flush()
-	if err != nil {
-		panic(err)
+	if rebuf.bufWriter != nil {
+		err := rebuf.bufWriter.Flush()
+		return err
 	}
 	return nil
 }
