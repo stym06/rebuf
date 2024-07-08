@@ -1,6 +1,6 @@
 # rebuf
 
-`rebuf` is a Go library used for creating and replaying log data on any filesystem. This tool is designed to make logging data easier and more efficient for developers.
+`rebuf` is a Golang implementation of WAL (Write Ahead Logging) which can also be used to log data bytes during a downstream service issue which can later be replayed on-demand
 
 ## Features
 
