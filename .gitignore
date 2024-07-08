@@ -24,3 +24,6 @@ go.work.sum
 
 #data dir
 data/
+
+#binary
+bin/

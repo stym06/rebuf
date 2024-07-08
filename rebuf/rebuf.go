@@ -179,7 +179,7 @@ func (rebuf *Rebuf) Replay() error {
 		// TODO
 
 	}
-
+	return nil
 }
 
 func (rebuf *Rebuf) Close() error {
