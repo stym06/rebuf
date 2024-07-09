@@ -30,6 +30,7 @@ func main() {
 
 	//Write Bytes
 	err = rebuf.Write([]byte("Hello world"))
+	err = rebuf.Write([]byte("Hello world2"))
 
 	//Replay and write to stdout
 	rebuf.Replay(writeToStdout)

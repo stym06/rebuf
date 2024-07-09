@@ -117,9 +117,8 @@ func (rebuf *Rebuf) Write(data []byte) error {
 		return err
 	}
 	rebuf.logSize = rebuf.logSize + int64(len(data)) + 8
-	rebuf.tmpLogFile.Close()
 
-	return nil
+	return err
 }
 
 func (rebuf *Rebuf) openExistingOrCreateNew(logDir string) error {
@@ -202,6 +201,7 @@ func (rebuf *Rebuf) Replay(callbackFn func([]byte) error) error {
 
 func (rebuf *Rebuf) Close() error {
 	if rebuf.bufWriter != nil {
+		rebuf.tmpLogFile.Close()
 		err := rebuf.bufWriter.Flush()
 		return err
 	}
