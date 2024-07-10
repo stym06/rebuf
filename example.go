@@ -33,7 +33,7 @@ func main() {
 	// Write Bytes
 	for i := 0; i < 30; i++ {
 		fmt.Printf("Writing data iter#%d \n", i)
-		err = rebuf.Write([]byte("Hello world"))
+		go rebuf.Write([]byte("Hello world"))
 		time.Sleep(300 * time.Millisecond)
 	}
 

@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/stym06/rebuf/utils"
@@ -30,6 +31,7 @@ type Rebuf struct {
 	logSize          int64
 	tmpLogFile       *os.File
 	ticker           time.Ticker
+	mu               sync.Mutex
 }
 
 func Init(options *RebufOptions) (*Rebuf, error) {
@@ -75,6 +77,8 @@ func (rebuf *Rebuf) syncPeriodically() error {
 	for {
 		select {
 		case <-rebuf.ticker.C:
+			rebuf.mu.Lock()
+			defer rebuf.mu.Unlock()
 			rebuf.tmpLogFile.Sync()
 		}
 	}
@@ -139,6 +143,8 @@ func (rebuf *Rebuf) Write(data []byte) error {
 	}
 	rebuf.logSize = rebuf.logSize + int64(len(data)) + 8
 	rebuf.bufWriter.Flush()
+	rebuf.mu.Lock()
+	defer rebuf.mu.Unlock()
 	rebuf.tmpLogFile.Sync()
 
 	return err
