@@ -3,9 +3,7 @@ package utils
 import (
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -90,7 +88,7 @@ func GetOldestSegmentFile(logDir string) (string, error) {
 	}
 
 	// Filter out .tmp files
-	oldestModifedTime := time.Unix(1<<63-1, 0)
+	oldestModifedTime := time.Now()
 	var oldestFileName string
 	for _, file := range files {
 		if strings.HasSuffix(file.Name(), ".tmp") {
@@ -108,22 +106,4 @@ func GetOldestSegmentFile(logDir string) (string, error) {
 		}
 	}
 	return oldestFileName, nil
-}
-
-func GetAllSegmentsList(logDir string) ([]fs.DirEntry, error) {
-	files, err := os.ReadDir(logDir)
-	if err != nil {
-		return nil, err
-	}
-	// Filter out .tmp files
-	var filteredFiles []os.DirEntry
-	for _, file := range files {
-		if !strings.HasSuffix(file.Name(), ".tmp") {
-			filteredFiles = append(filteredFiles, file)
-		}
-	}
-	sort.Slice(filteredFiles, func(i, j int) bool {
-		return filteredFiles[i].Name() < filteredFiles[j].Name()
-	})
-	return filteredFiles, nil
 }
