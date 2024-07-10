@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -36,19 +36,15 @@ type Rebuf struct {
 
 func Init(options *RebufOptions) (*Rebuf, error) {
 
-	if strings.HasSuffix(options.LogDir, "/") {
-		panic("Log Directory should not have trailing slash")
-	}
-
 	//ensure dir is created
-	if _, err := os.Stat(options.LogDir); err != nil {
+	if _, err := os.Stat(filepath.Join(options.LogDir)); err != nil {
 		if os.IsNotExist(err) {
 			os.Mkdir(options.LogDir, 0700)
 		}
 	}
 
 	//open temp file
-	tmpLogFileName := options.LogDir + "/" + "rebuf.tmp"
+	tmpLogFileName := filepath.Join(options.LogDir, "rebuf.tmp")
 	tmpLogFile, err := os.OpenFile(tmpLogFileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		return nil, err
@@ -96,7 +92,7 @@ func (rebuf *Rebuf) Write(data []byte) error {
 				return err
 			}
 			fmt.Printf("Would have deleted %s", oldestLogFileName)
-			os.Remove(rebuf.logDir + "/" + oldestLogFileName)
+			os.Remove(filepath.Join(rebuf.logDir, oldestLogFileName))
 
 			rebuf.segmentCount--
 		}
@@ -106,13 +102,13 @@ func (rebuf *Rebuf) Write(data []byte) error {
 		rebuf.tmpLogFile.Sync()
 
 		// rename this file to current segment count
-		os.Rename(rebuf.logDir+"/rebuf.tmp", rebuf.logDir+"/rebuf-"+strconv.Itoa(rebuf.currentSegmentId))
+		os.Rename(filepath.Join(rebuf.logDir, "/rebuf.tmp"), filepath.Join(rebuf.logDir, "/rebuf-"+strconv.Itoa(rebuf.currentSegmentId)))
 		//increase segment count by 1
 		rebuf.currentSegmentId = rebuf.currentSegmentId + 1
 		rebuf.segmentCount = rebuf.segmentCount + 1
 
 		//change writer to this temp file
-		tmpLogFile, err := os.OpenFile(rebuf.logDir+"/"+"rebuf.tmp", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+		tmpLogFile, err := os.OpenFile(filepath.Join(rebuf.logDir, "rebuf.tmp"), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 		if err != nil {
 			return err
 		}
@@ -157,7 +153,7 @@ func (rebuf *Rebuf) openExistingOrCreateNew(logDir string) error {
 		return err
 	}
 
-	tmpLogFileName := logDir + "/" + "rebuf.tmp"
+	tmpLogFileName := filepath.Join(logDir, "rebuf.tmp")
 	tmpLogFile, err := os.OpenFile(tmpLogFileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		return err
@@ -191,7 +187,7 @@ func (rebuf *Rebuf) Replay(callbackFn func([]byte) error) error {
 		return err
 	}
 	for _, fileInfo := range files {
-		file, err := os.Open(rebuf.logDir + "/" + fileInfo.Name())
+		file, err := os.Open(filepath.Join(rebuf.logDir, fileInfo.Name()))
 		if err != nil {
 			return err
 		}
