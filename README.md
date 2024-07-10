@@ -25,7 +25,6 @@ rebufOptions := &rebuf.RebufOptions{
     LogDir:      "/Users/data",
     MaxLogSize:  50,
     MaxSegments: 2,
-    SyncMaxWait: 5 * time.Second,
 }
 
 //Init Rebuf
@@ -36,13 +35,17 @@ if err != nil {
 
 defer rebuf.Close()
 
-// Write Bytes
-for i := 0; i < 10; i++ {
-    fmt.Printf("Writing data iter#%d \n", i)
-    err = rebuf.Write([]byte("Hello world"))
-    time.Sleep(300 * time.Millisecond)
-}
+//Write Bytes
+err = rebuf.Write([]byte("Hello world"))
 
+//Replay
+rebuf.Replay(writeToStdout)
+
+
+func writeToStdout(data []byte) error {
+	fmt.Println(string(data))
+	return nil
+}
 ```
 
 ## License
