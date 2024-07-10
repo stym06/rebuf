@@ -1,12 +1,14 @@
 package utils
 
 import (
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func IsDirectoryEmpty(dirPath string) (bool, error) {
@@ -38,17 +40,27 @@ func GetLatestSegmentId(logDir string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+
 	// Filter out .tmp files
-	var filteredFiles []os.DirEntry
+	latestModifiedTime := time.Time{}
+	var latestFileName string
 	for _, file := range files {
-		if !strings.HasSuffix(file.Name(), ".tmp") {
-			filteredFiles = append(filteredFiles, file)
+		if strings.HasSuffix(file.Name(), ".tmp") {
+			continue
+		}
+		fileInfo, err := file.Info()
+
+		if err != nil {
+			return 0, err
+		}
+
+		if fileInfo.ModTime().After(latestModifiedTime) {
+			latestModifiedTime = fileInfo.ModTime()
+			latestFileName = file.Name()
 		}
 	}
-	sort.Slice(filteredFiles, func(i, j int) bool {
-		return filteredFiles[i].Name() > filteredFiles[j].Name()
-	})
-	segmentCount, err := strconv.Atoi(strings.Split(filteredFiles[0].Name(), "-")[1])
+	fmt.Println(latestFileName)
+	segmentCount, err := strconv.Atoi(strings.Split(latestFileName, "-")[1])
 	if err != nil {
 		return 0, err
 	}
@@ -76,17 +88,26 @@ func GetOldestSegmentFile(logDir string) (string, error) {
 	if err != nil {
 		return "0", err
 	}
+
 	// Filter out .tmp files
-	var filteredFiles []os.DirEntry
+	oldestModifedTime := time.Unix(1<<63-1, 0)
+	var oldestFileName string
 	for _, file := range files {
-		if !strings.HasSuffix(file.Name(), ".tmp") {
-			filteredFiles = append(filteredFiles, file)
+		if strings.HasSuffix(file.Name(), ".tmp") {
+			continue
+		}
+		fileInfo, err := file.Info()
+
+		if err != nil {
+			return "", err
+		}
+
+		if fileInfo.ModTime().Before(oldestModifedTime) {
+			oldestModifedTime = fileInfo.ModTime()
+			oldestFileName = file.Name()
 		}
 	}
-	sort.Slice(filteredFiles, func(i, j int) bool {
-		return filteredFiles[i].Name() < filteredFiles[j].Name()
-	})
-	return filteredFiles[0].Name(), nil
+	return oldestFileName, nil
 }
 
 func GetAllSegmentsList(logDir string) ([]fs.DirEntry, error) {
