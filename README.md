@@ -1,4 +1,5 @@
 # rebuf
+
 [![Go](https://github.com/stym06/rebuf/actions/workflows/go.yml/badge.svg)](https://github.com/stym06/rebuf/actions/workflows/go.yml)
 
 `rebuf` is a Golang implementation of WAL (Write Ahead||After Logging) which can also be used to log data bytes during a downstream service issue which can later be replayed on-demand
@@ -31,6 +32,15 @@ rebufOptions := &rebuf.RebufOptions{
 rebuf, err := rebuf.Init(rebufOptions)
 if err != nil {
     fmt.Println("Error during Rebuf creation: " + err.Error())
+}
+
+defer rebuf.Close()
+
+// Write Bytes
+for i := 0; i < 10; i++ {
+    fmt.Printf("Writing data iter#%d \n", i)
+    err = rebuf.Write([]byte("Hello world"))
+    time.Sleep(300 * time.Millisecond)
 }
 
 ```
