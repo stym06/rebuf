@@ -78,8 +78,8 @@ func (rebuf *Rebuf) syncPeriodically() error {
 		select {
 		case <-rebuf.ticker.C:
 			rebuf.mu.Lock()
-			defer rebuf.mu.Unlock()
 			rebuf.tmpLogFile.Sync()
+			rebuf.mu.Unlock()
 		}
 	}
 }
