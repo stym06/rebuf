@@ -35,8 +35,12 @@ if err != nil {
 
 defer rebuf.Close()
 
-//Write Bytes
-err = rebuf.Write([]byte("Hello world"))
+// Write Bytes
+for i := 0; i < 30; i++ {
+    fmt.Printf("Writing data iter#%d \n", i)
+    err = rebuf.Write([]byte("Hello world"))
+    time.Sleep(300 * time.Millisecond)
+}
 
 //Replay
 rebuf.Replay(writeToStdout)
