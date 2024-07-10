@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/stym06/rebuf/utils"
 )
@@ -15,6 +16,7 @@ import (
 type RebufOptions struct {
 	LogDir      string
 	MaxLogSize  int64
+	FsyncTime   time.Duration
 	MaxSegments int
 }
 
@@ -28,6 +30,7 @@ type Rebuf struct {
 	logSize          int64
 	file             *os.File
 	tmpLogFile       *os.File
+	ticker           time.Ticker
 }
 
 func Init(options *RebufOptions) (*Rebuf, error) {
@@ -55,6 +58,7 @@ func Init(options *RebufOptions) (*Rebuf, error) {
 		maxLogSize:  options.MaxLogSize,
 		maxSegments: options.MaxSegments,
 		tmpLogFile:  tmpLogFile,
+		ticker:      *time.NewTicker(options.FsyncTime),
 	}
 
 	err = rebuf.openExistingOrCreateNew(options.LogDir)
@@ -63,33 +67,47 @@ func Init(options *RebufOptions) (*Rebuf, error) {
 		return nil, err
 	}
 
+	go rebuf.syncPeriodically()
+
 	return rebuf, err
+}
+
+func (rebuf *Rebuf) syncPeriodically() error {
+	for {
+		select {
+		case <-rebuf.ticker.C:
+			rebuf.tmpLogFile.Sync()
+		}
+	}
 }
 
 func (rebuf *Rebuf) Write(data []byte) error {
 	if rebuf.logSize+int64(len(data))+8 > rebuf.maxLogSize {
 
-		fmt.Println("Log size will be greater than " + string(rebuf.logSize))
+		fmt.Printf("Log size will be greater than %d. Moving to segment %d \n", rebuf.logSize, rebuf.currentSegmentId+1)
 		rebuf.bufWriter.Flush()
+		rebuf.tmpLogFile.Sync()
 
 		//rename this file to current segment count
 		os.Rename(rebuf.logDir+"/rebuf.tmp", rebuf.logDir+"/rebuf-"+strconv.Itoa(rebuf.currentSegmentId+1))
 
 		//increase segment count by 1
-		rebuf.currentSegmentId += 1
-		rebuf.segmentCount += 1
+		rebuf.currentSegmentId = rebuf.currentSegmentId + 1
+		rebuf.segmentCount = rebuf.segmentCount + 1
 
 		//change writer to this temp file
 		rebuf.bufWriter = bufio.NewWriter(rebuf.tmpLogFile)
 		rebuf.logSize = 0
 
 		if rebuf.segmentCount > rebuf.maxSegments {
+
 			//delete the oldest log file
 			oldestLogFileName, err := utils.GetOldestSegmentFile(rebuf.logDir)
 			if err != nil {
 				return err
 			}
-			os.Remove(rebuf.logDir + "/" + oldestLogFileName)
+			fmt.Printf("Would have deleted %s", oldestLogFileName)
+			// os.Remove(rebuf.logDir + "/" + oldestLogFileName)
 			return nil
 		}
 
@@ -138,7 +156,7 @@ func (rebuf *Rebuf) openExistingOrCreateNew(logDir string) error {
 
 	if empty {
 		rebuf.currentSegmentId = 0
-		rebuf.segmentCount = 0
+		rebuf.segmentCount = 1
 		rebuf.logSize, err = utils.FileSize(file)
 		if err != nil {
 			return err
@@ -170,10 +188,10 @@ func (rebuf *Rebuf) Replay(callbackFn func([]byte) error) error {
 			return err
 		}
 		defer file.Close()
+		bufReader := bufio.NewReader(file)
 
 		var readBytes []byte
 		for err == nil {
-			bufReader := bufio.NewReader(file)
 			readBytes, err = bufReader.Peek(8)
 			if err != nil {
 				break
@@ -200,10 +218,21 @@ func (rebuf *Rebuf) Replay(callbackFn func([]byte) error) error {
 }
 
 func (rebuf *Rebuf) Close() error {
-	if rebuf.bufWriter != nil {
+	if rebuf.bufWriter == nil {
+		return nil
+	}
+
+	if err := rebuf.bufWriter.Flush(); err != nil {
 		rebuf.tmpLogFile.Close()
-		err := rebuf.bufWriter.Flush()
 		return err
 	}
-	return nil
+
+	if err := rebuf.tmpLogFile.Sync(); err != nil {
+		rebuf.tmpLogFile.Close()
+		return err
+	}
+
+	rebuf.ticker.Stop()
+
+	return rebuf.tmpLogFile.Close()
 }
