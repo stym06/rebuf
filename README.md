@@ -50,6 +50,9 @@ func writeToStdout(data []byte) error {
 	fmt.Println(string(data))
 	return nil
 }
+
+//simulate running program
+time.Sleep(30 * time.Second)
 ```
 
 ## License
