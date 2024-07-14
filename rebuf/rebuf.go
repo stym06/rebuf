@@ -100,7 +100,7 @@ func (rebuf *Rebuf) Write(data []byte) error {
 			rebuf.segmentCount--
 		}
 
-		rebuf.log.Info("Log size will be greater than %d. Moving to segment %d \n", rebuf.logSize, rebuf.currentSegmentId+1)
+		rebuf.log.Info("Log size will be greater than", "logsize", rebuf.logSize, "Moving to", rebuf.currentSegmentId+1)
 		rebuf.bufWriter.Flush()
 		rebuf.tmpLogFile.Sync()
 
