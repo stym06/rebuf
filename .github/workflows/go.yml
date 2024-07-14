@@ -23,4 +23,8 @@ jobs:
 
     - name: Build
       run: go build -v ./...
+
+    - name: Go Unit Test Coverage Report
+      uses: fgrosse/go-coverage-report@v1.0.2
+            
             
