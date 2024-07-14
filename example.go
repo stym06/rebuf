@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 	"time"
@@ -43,6 +44,18 @@ func main() {
 
 	//Replay and write to stdout
 	rebuf.Replay(writeToStdout)
+
+	//Get oldest and latest offset
+	oldestOffset, err := rebuf.GetOldestOffset()
+	if err != nil {
+		logger.Info("Error during Rebuf creation: " + err.Error())
+	}
+	logger.Info("oldest offset is: " + fmt.Sprint(oldestOffset))
+	latestOffset, err := rebuf.GetLatestOffset()
+	if err != nil {
+		logger.Info("Error during Rebuf creation: " + err.Error())
+	}
+	logger.Info("latest offset is: " + fmt.Sprintln(latestOffset))
 
 	if err != nil {
 		logger.Info(err.Error())
