@@ -3,8 +3,8 @@ package rebuf
 import (
 	"bufio"
 	"encoding/binary"
-	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -19,6 +19,7 @@ type RebufOptions struct {
 	MaxLogSize  int64
 	FsyncTime   time.Duration
 	MaxSegments int
+	Logger      *slog.Logger
 }
 
 type Rebuf struct {
@@ -32,6 +33,7 @@ type Rebuf struct {
 	tmpLogFile       *os.File
 	ticker           time.Ticker
 	mu               sync.Mutex
+	log              *slog.Logger
 }
 
 func Init(options *RebufOptions) (*Rebuf, error) {
@@ -56,6 +58,7 @@ func Init(options *RebufOptions) (*Rebuf, error) {
 		maxSegments: options.MaxSegments,
 		tmpLogFile:  tmpLogFile,
 		ticker:      *time.NewTicker(options.FsyncTime),
+		log:         options.Logger,
 	}
 
 	err = rebuf.openExistingOrCreateNew(options.LogDir)
@@ -84,20 +87,20 @@ func (rebuf *Rebuf) Write(data []byte) error {
 	if rebuf.logSize+int64(len(data))+8 > rebuf.maxLogSize {
 
 		if rebuf.segmentCount > rebuf.maxSegments {
-			fmt.Printf("Reached maxSegments %d", rebuf.maxSegments)
+			rebuf.log.Info("Reached maxSegments", "segments", rebuf.maxSegments)
 
 			//delete the oldest log file
 			oldestLogFileName, err := utils.GetOldestSegmentFile(rebuf.logDir)
 			if err != nil {
 				return err
 			}
-			fmt.Printf("Would have deleted %s", oldestLogFileName)
+			rebuf.log.Info("Would have deleted ", "oldestLogFileName", oldestLogFileName)
 			os.Remove(filepath.Join(rebuf.logDir, oldestLogFileName))
 
 			rebuf.segmentCount--
 		}
 
-		fmt.Printf("Log size will be greater than %d. Moving to segment %d \n", rebuf.logSize, rebuf.currentSegmentId+1)
+		rebuf.log.Info("Log size will be greater than %d. Moving to segment %d \n", rebuf.logSize, rebuf.currentSegmentId+1)
 		rebuf.bufWriter.Flush()
 		rebuf.tmpLogFile.Sync()
 
