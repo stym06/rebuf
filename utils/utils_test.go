@@ -74,13 +74,10 @@ func TestIsDirectoryEmpty(t *testing.T) {
 
 	t.Run("directory exists with .tmp file and data file", func(t *testing.T) {
 
-		dataFileName := filepath.Join(dirPath, "rebuf-1")
-		dataFile, err := os.OpenFile(dataFileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+		dataFile, err := createFile(filepath.Join(dirPath, "rebuf-1"))
 		if err != nil {
 			t.Fatalf("Error in creating file %v", dataFile)
 		}
-		defer dataFile.Sync()
-		defer dataFile.Close()
 
 		empty, err := IsDirectoryEmpty(dirPath)
 		if err != nil {
