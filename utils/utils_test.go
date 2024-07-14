@@ -101,5 +101,8 @@ func TestIsDirectoryEmpty(t *testing.T) {
 			t.Fatalf("Expected %v. Got %v", false, empty)
 		}
 	})
+}
+
+func TestGetLatestSegmentId(t *testing.T) {
 
 }
