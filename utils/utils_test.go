@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bufio"
 	"log"
 	"os"
 	"path/filepath"
@@ -72,34 +73,34 @@ func TestIsDirectoryEmpty(t *testing.T) {
 		}
 	})
 
-	// t.Run("directory exists with .tmp file and data file", func(t *testing.T) {
+	t.Run("directory exists with .tmp file and data file", func(t *testing.T) {
 
-	// 	dataFileName := filepath.Join(dirPath, "rebuf-1")
-	// 	dataFile, err := os.OpenFile(dataFileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	// 	if err != nil {
-	// 		t.Fatalf("Error in creating file %v", dataFile)
-	// 	}
-	// 	defer dataFile.Sync()
-	// 	defer dataFile.Close()
+		dataFileName := filepath.Join(dirPath, "rebuf-1")
+		dataFile, err := os.OpenFile(dataFileName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+		if err != nil {
+			t.Fatalf("Error in creating file %v", dataFile)
+		}
+		defer dataFile.Sync()
+		defer dataFile.Close()
 
-	// 	data := []byte{0x1}
-	// 	dataFileWriter := bufio.NewWriter(dataFile)
-	// 	_, err = dataFileWriter.Write(data)
-	// 	if err != nil {
-	// 		t.Fatalf("Error in writing file %v", dataFile)
-	// 	}
-	// 	dataFileWriter.Flush()
+		data := []byte{0x1}
+		dataFileWriter := bufio.NewWriter(dataFile)
+		_, err = dataFileWriter.Write(data)
+		if err != nil {
+			t.Fatalf("Error in writing file %v", dataFile)
+		}
+		dataFileWriter.Flush()
 
-	// 	empty, err := IsDirectoryEmpty(dirPath)
-	// 	if err != nil {
-	// 		t.Fatalf("Error in running IsDirectoryEmpty with %v", empty)
-	// 	}
+		empty, err := IsDirectoryEmpty(dirPath)
+		if err != nil {
+			t.Fatalf("Error in running IsDirectoryEmpty with %v", err)
+		}
 
-	// 	//empty should be false
-	// 	if empty == true {
-	// 		t.Fatalf("Expected %v. Got %v", false, empty)
-	// 	}
-	// })
+		//empty should be false
+		if empty == true {
+			t.Fatalf("Expected %v. Got %v", false, empty)
+		}
+	})
 }
 
 func TestGetLatestSegmentId(t *testing.T) {
