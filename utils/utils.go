@@ -24,6 +24,7 @@ func IsDirectoryEmpty(dirPath string) (bool, error) {
 		if !strings.HasSuffix(file.Name(), ".tmp") {
 			filteredFiles = append(filteredFiles, file)
 		}
+		fmt.Printf("File name: %s", file.Name())
 	}
 	if err != nil && err != io.EOF {
 		return false, err
