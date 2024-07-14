@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"strconv"
@@ -24,7 +23,6 @@ func IsDirectoryEmpty(dirPath string) (bool, error) {
 		if !strings.HasSuffix(file.Name(), ".tmp") {
 			filteredFiles = append(filteredFiles, file)
 		}
-		fmt.Printf("File name: %s", file.Name())
 	}
 	if err != nil && err != io.EOF {
 		return false, err
@@ -58,7 +56,6 @@ func GetLatestSegmentId(logDir string) (int, error) {
 			latestFileName = file.Name()
 		}
 	}
-	fmt.Println(latestFileName)
 	segmentCount, err := strconv.Atoi(strings.Split(latestFileName, "-")[1])
 	if err != nil {
 		return 0, err
