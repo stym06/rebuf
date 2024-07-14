@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"bufio"
 	"log"
 	"os"
 	"path/filepath"
@@ -82,14 +81,6 @@ func TestIsDirectoryEmpty(t *testing.T) {
 		}
 		defer dataFile.Sync()
 		defer dataFile.Close()
-
-		data := []byte{0x1}
-		dataFileWriter := bufio.NewWriter(dataFile)
-		_, err = dataFileWriter.Write(data)
-		if err != nil {
-			t.Fatalf("Error in writing file %v", dataFile)
-		}
-		dataFileWriter.Flush()
 
 		empty, err := IsDirectoryEmpty(dirPath)
 		if err != nil {
