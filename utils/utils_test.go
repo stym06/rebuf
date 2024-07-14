@@ -104,5 +104,5 @@ func TestIsDirectoryEmpty(t *testing.T) {
 }
 
 func TestGetLatestSegmentId(t *testing.T) {
-	//test
+	//test2
 }
