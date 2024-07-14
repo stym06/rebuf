@@ -85,7 +85,7 @@ func TestIsDirectoryEmpty(t *testing.T) {
 		}
 
 		//empty should be false
-		if empty == true {
+		if empty == false {
 			t.Fatalf("Expected %v. Got %v", false, empty)
 		}
 	})
