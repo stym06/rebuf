@@ -3,6 +3,8 @@ package rebuf
 import (
 	"bufio"
 	"encoding/binary"
+	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
@@ -34,6 +36,8 @@ type Rebuf struct {
 	ticker           time.Ticker
 	mu               sync.Mutex
 	log              *slog.Logger
+	oldestOffset     int64
+	latestOffset     int64
 }
 
 func Init(options *RebufOptions) (*Rebuf, error) {
@@ -84,7 +88,7 @@ func (rebuf *Rebuf) syncPeriodically() error {
 }
 
 func (rebuf *Rebuf) Write(data []byte) error {
-	if rebuf.logSize+int64(len(data))+8 > rebuf.maxLogSize {
+	if rebuf.logSize+int64(len(data))+16 > rebuf.maxLogSize {
 
 		if rebuf.segmentCount > rebuf.maxSegments {
 			rebuf.log.Info("Reached maxSegments", "segments", rebuf.maxSegments)
@@ -96,6 +100,11 @@ func (rebuf *Rebuf) Write(data []byte) error {
 			}
 			rebuf.log.Info("Would have deleted ", "oldestLogFileName", oldestLogFileName)
 			os.Remove(filepath.Join(rebuf.logDir, oldestLogFileName))
+
+			rebuf.oldestOffset, err = rebuf.GetOldestOffset()
+			if err != nil {
+				return err
+			}
 
 			rebuf.segmentCount--
 		}
@@ -126,9 +135,16 @@ func (rebuf *Rebuf) Write(data []byte) error {
 		return err
 	}
 
+	//write the offset
+	offsetBuf := make([]byte, 8)
+	binary.BigEndian.AppendUint64(offsetBuf, uint64(rebuf.latestOffset))
+	_, err = rebuf.bufWriter.Write(offsetBuf)
+	if err != nil {
+		return err
+	}
+
 	//write the size of the byte array and then the byte array itself
 	size := uint64(len(data))
-	//creating a byte array of size 8 and putting the length of `data` into the array
 	sizeBuf := make([]byte, 8)
 	binary.BigEndian.PutUint64(sizeBuf, size)
 
@@ -136,11 +152,14 @@ func (rebuf *Rebuf) Write(data []byte) error {
 	if err != nil {
 		return err
 	}
+
+	//write data
 	_, err = rebuf.bufWriter.Write(data)
 	if err != nil {
 		return err
 	}
-	rebuf.logSize = rebuf.logSize + int64(len(data)) + 8
+	rebuf.logSize = rebuf.logSize + int64(len(data)) + 16
+	rebuf.latestOffset += 1
 	rebuf.bufWriter.Flush()
 	rebuf.mu.Lock()
 	defer rebuf.mu.Unlock()
@@ -168,8 +187,20 @@ func (rebuf *Rebuf) openExistingOrCreateNew(logDir string) error {
 		rebuf.currentSegmentId = 0
 		rebuf.segmentCount = 0
 		rebuf.logSize = 0
+		rebuf.oldestOffset = 0
+		rebuf.latestOffset = 0
 	} else {
 		rebuf.currentSegmentId, err = utils.GetLatestSegmentId(logDir)
+		if err != nil {
+			return err
+		}
+
+		rebuf.oldestOffset, err = rebuf.GetOldestOffset()
+		if err != nil {
+			return err
+		}
+
+		rebuf.latestOffset, err = rebuf.GetLatestOffset()
 		if err != nil {
 			return err
 		}
@@ -191,20 +222,25 @@ func (rebuf *Rebuf) Replay(callbackFn func([]byte) error) error {
 	}
 	for _, fileInfo := range files {
 		file, err := os.Open(filepath.Join(rebuf.logDir, fileInfo.Name()))
-		if err != nil {
-			return err
-		}
-		defer file.Close()
 		bufReader := bufio.NewReader(file)
 
 		var readBytes []byte
 		for err == nil {
+			_, err := bufReader.Peek(8)
+			if err != nil {
+				break
+			}
+			_, err = bufReader.Discard(8)
+			if err != nil {
+				break
+			}
+
 			readBytes, err = bufReader.Peek(8)
 			if err != nil {
 				break
 			}
 			size := int(binary.BigEndian.Uint64(readBytes))
-			_, err := bufReader.Discard(8)
+			_, err = bufReader.Discard(8)
 			if err != nil {
 				break
 			}
@@ -219,7 +255,7 @@ func (rebuf *Rebuf) Replay(callbackFn func([]byte) error) error {
 			}
 			_, _ = bufReader.Discard(size)
 		}
-
+		file.Close()
 	}
 	return nil
 }
@@ -242,4 +278,73 @@ func (rebuf *Rebuf) Close() error {
 	rebuf.ticker.Stop()
 
 	return rebuf.tmpLogFile.Close()
+}
+
+func (rebuf *Rebuf) GetLatestOffset() (int64, error) {
+	latestSegmentId, err := utils.GetLatestSegmentId(rebuf.logDir)
+	if err != nil {
+		return 0, err
+	}
+
+	latestSegmentFile := fmt.Sprintf("rebuf-%v", latestSegmentId)
+
+	file, err := os.Open(filepath.Join(rebuf.logDir, latestSegmentFile))
+	bufReader := bufio.NewReader(file)
+
+	var latestOffset int64
+	for err == nil {
+
+		if errors.Is(err, io.EOF) {
+			return 0, err
+		}
+
+		offsetBytes, err := bufReader.Peek(8)
+		if err != nil {
+			break
+		}
+		latestOffset = int64(binary.BigEndian.Uint64(offsetBytes))
+
+		_, err = bufReader.Discard(8)
+
+		if err != nil {
+			return 0, err
+		}
+
+		readBytes, err := bufReader.Peek(8)
+		if err != nil {
+			break
+		}
+		_, err = bufReader.Discard(len(readBytes))
+		if err != nil {
+			return 0, err
+		}
+
+	}
+
+	file.Close()
+	return latestOffset, nil
+
+}
+
+func (rebuf *Rebuf) GetOldestOffset() (int64, error) {
+	oldestLogFile, err := utils.GetOldestSegmentFile(rebuf.logDir)
+	if err != nil {
+		return 0, err
+	}
+
+	file, err := os.Open(filepath.Join(rebuf.logDir, oldestLogFile))
+	if err != nil {
+		return 0, err
+	}
+	bufReader := bufio.NewReader(file)
+
+	offsetBytes, err := bufReader.Peek(8)
+	if errors.Is(err, io.EOF) {
+		return 0, err
+	}
+
+	oldestOffset := int64(binary.BigEndian.Uint64(offsetBytes))
+
+	return oldestOffset, nil
+
 }
