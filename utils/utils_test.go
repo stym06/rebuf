@@ -11,7 +11,7 @@ import (
 func setupSuite(t testing.TB) func(t testing.TB) {
 	log.Println("Setting up logDir empty")
 
-	dirPath := "/Users/satyamraj/personal/rebuf/data"
+	dirPath := os.Getenv("TEST_LOG_DIR")
 
 	if _, err := os.Stat(filepath.Join(dirPath)); err != nil {
 		if os.IsNotExist(err) {
@@ -41,7 +41,7 @@ func TestIsDirectoryEmpty(t *testing.T) {
 
 	teardownSuite := setupSuite(t)
 	defer teardownSuite(t)
-	dirPath := "/Users/satyamraj/personal/rebuf/data"
+	dirPath := os.Getenv("TEST_LOG_DIR")
 
 	t.Run("directory exists without .tmp file", func(t *testing.T) {
 		empty, err := IsDirectoryEmpty(dirPath)
