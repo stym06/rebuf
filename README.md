@@ -4,6 +4,8 @@
 
 `rebuf` is a lightweight Go implementation of a Write-Ahead Log (WAL) that persists data to segmented log files and supports on-demand replay. It can be used as a durable buffer during downstream service outages — log data bytes while the service is down, then replay them when it recovers.
 
+**[See detailed use cases and examples](USECASES.md)** — message queue recovery, database failover buffering, microservice outbox, IoT data collection, webhook delivery, and more.
+
 ## Features
 
 - **Segmented WAL** — automatic segment rotation and retention with configurable limits.
