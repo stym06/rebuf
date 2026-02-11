@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"os"
 	"time"
@@ -14,40 +15,34 @@ func writeToStdout(data []byte) error {
 }
 
 func main() {
-
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
-	//Init the RebufOptions
-	rebufOptions := &rebuf.RebufOptions{
-		LogDir:      "/Users/satyamraj/personal/rebuf/data",
-		FsyncTime:   5 * time.Second,
-		MaxLogSize:  50,
-		MaxSegments: 5,
-		Logger:      logger,
-	}
-
-	//Init Rebuf
-	rebuf, err := rebuf.Init(rebufOptions)
+	r, err := rebuf.New(
+		context.Background(),
+		"./data",
+		rebuf.WithMaxLogSize(50),
+		rebuf.WithMaxSegments(5),
+		rebuf.WithFsyncTime(5*time.Second),
+		rebuf.WithSyncStrategy(rebuf.SyncEveryWrite),
+		rebuf.WithLogger(logger),
+	)
 	if err != nil {
-		logger.Info("Error during Rebuf creation: " + err.Error())
+		logger.Error("failed to create rebuf", "error", err)
+		os.Exit(1)
 	}
+	defer r.Close()
 
-	defer rebuf.Close()
-
-	// Write Bytes
+	// Write entries.
 	for i := 0; i < 30; i++ {
-		logger.Info("Writing data: ", "iter", i)
-		go rebuf.Write([]byte("Hello world"))
+		logger.Info("writing data", "iter", i)
+		if err := r.Write([]byte("Hello world")); err != nil {
+			logger.Error("write failed", "error", err)
+		}
 		time.Sleep(300 * time.Millisecond)
 	}
 
-	//Replay and write to stdout
-	rebuf.Replay(writeToStdout)
-
-	if err != nil {
-		logger.Info(err.Error())
+	// Replay all entries.
+	if err := r.Replay(writeToStdout); err != nil {
+		logger.Error("replay failed", "error", err)
 	}
-
-	time.Sleep(30 * time.Second)
-
 }
