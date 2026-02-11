@@ -1,0 +1,50 @@
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: postgres://rebuf:rebuf@postgres:5432/rebuf?sslmode=disable
+      JWT_SECRET: change-me-in-production-use-a-random-64-char-string
+      WAL_DIR: /var/lib/rebuf/wal
+      PORT: "8080"
+      DELIVERY_WORKERS: "10"
+      DELIVERY_TIMEOUT_SEC: "30"
+      MAX_RETRY_ATTEMPTS: "7"
+    volumes:
+      - wal_data:/var/lib/rebuf/wal
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: rebuf
+      POSTGRES_USER: rebuf
+      POSTGRES_PASSWORD: rebuf
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rebuf"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on:
+      - server
+
+volumes:
+  pg_data:
+  wal_data:

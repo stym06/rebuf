@@ -19,7 +19,6 @@
 # vendor/
 
 # Go workspace file
-go.work
 go.work.sum
 
 #data dir
@@ -29,3 +28,11 @@ data/
 bin/
 
 coverage.txt
+
+# Node
+web/node_modules/
+web/dist/
+
+# Environment
+.env
+.env.local
